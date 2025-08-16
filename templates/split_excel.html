@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <!-- Your existing nav bar -->
+</nav>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h4>Split Excel File by Column Values</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data" id="splitForm">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Select Excel File</label>
+                            <input class="form-control" type="file" id="file" name="file" accept=".xlsx,.xls,.csv" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="primary_column" class="form-label">Primary Column to Split By*</label>
+                            <select class="form-select" id="primary_column" name="primary_column" required disabled>
+                                <option value="">-- First upload a file --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="secondary_column" class="form-label">Secondary Column (Optional)</label>
+                            <select class="form-select" id="secondary_column" name="secondary_column" disabled>
+                                <option value="">-- Optional secondary filter --</option>
+                            </select>
+                            <div class="form-text">Files will be split by primary column first, then optionally by secondary column</div>
+                        </div>
+                        <button type="submit" class="btn btn-warning" id="submitBtn" disabled>Split File</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5>How to use</h5>
+                </div>
+                <div class="card-body">
+                    <ol>
+                        <li>Upload your Excel file (XLSX, XLS, or CSV)</li>
+                        <li>Select the primary column to split by</li>
+                        <li>Optionally select a secondary column for additional grouping</li>
+                        <li>Click "Split File"</li>
+                        <li>Download the ZIP file containing all split files</li>
+                    </ol>
+                    <p class="text-muted">Files will be named as "PrimaryValue_SecondaryValue.xlsx" when both columns are selected.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+document.getElementById('file').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const primarySelect = document.getElementById('primary_column');
+    const secondarySelect = document.getElementById('secondary_column');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (!file) {
+        primarySelect.innerHTML = '<option value="">-- First upload a file --</option>';
+        primarySelect.disabled = true;
+        secondarySelect.innerHTML = '<option value="">-- Optional secondary filter --</option>';
+        secondarySelect.disabled = true;
+        submitBtn.disabled = true;
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+            
+            primarySelect.innerHTML = '';
+            secondarySelect.innerHTML = '<option value="">-- Optional secondary filter --</option>';
+            
+            if (jsonData.length > 0) {
+                const headers = jsonData[0];
+                headers.forEach(header => {
+                    if (header) {
+                        const option = document.createElement('option');
+                        option.value = header;
+                        option.textContent = header;
+                        primarySelect.appendChild(option.cloneNode(true));
+                        secondarySelect.appendChild(option);
+                    }
+                });
+                
+                if (primarySelect.options.length > 0) {
+                    primarySelect.disabled = false;
+                    secondarySelect.disabled = false;
+                    submitBtn.disabled = false;
+                } else {
+                    primarySelect.innerHTML = '<option value="">No valid columns found</option>';
+                }
+            } else {
+                primarySelect.innerHTML = '<option value="">Empty file - no data found</option>';
+            }
+        } catch (error) {
+            console.error('Error reading file:', error);
+            primarySelect.innerHTML = '<option value="">Error reading file</option>';
+        }
+    };
+    reader.readAsArrayBuffer(file);
+});
+</script>
+{% endblock %}
